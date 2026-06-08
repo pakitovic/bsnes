@@ -3502,6 +3502,22 @@ game
       frequency: 7600000
 
 game
+  sha256:   b5be1dba3012b6811a5660fbf2981cb23cdd1e48f845a42df00f0f55b19f0392
+  label:    Super Mario World
+  name:     Super Mario World
+  region:   SNSP-MW-0
+  revision: SPAL-MW-0
+  board:    SHVC-1A1B-05
+    memory
+      type: ROM
+      size: 0x80000
+      content: Program
+    memory
+      type: RAM
+      size: 0x800
+      content: Save
+
+game
   sha256:   5cc54b1e5c8d3c7701a5e20514145c3b36f15f26fe0a4fe6d2e43677e4b4eda9
   label:    Super Mario World
   name:     Super Mario World
@@ -16098,4 +16114,3 @@ game
       type: ROM
       size: 0x80000
       content: Program
-

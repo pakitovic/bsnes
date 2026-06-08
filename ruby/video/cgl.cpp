@@ -3,11 +3,13 @@
 
 struct VideoCGL;
 
-@interface RubyVideoCGL : NSOpenGLView {
+@interface RubyVideoCGL : NSView {
 @public
   VideoCGL* video;
 }
--(id) initWith:(VideoCGL*)video pixelFormat:(NSOpenGLPixelFormat*)pixelFormat;
+-(id) initWith:(VideoCGL*)video;
+-(BOOL) isFlipped;
+-(void) drawRect:(NSRect)rect;
 -(void) reshape;
 -(BOOL) acceptsFirstResponder;
 @end
@@ -48,12 +50,6 @@ struct VideoCGL : VideoDriver, OpenGL {
   }
 
   auto setBlocking(bool blocking) -> bool override {
-    if(!view) return true;
-    @autoreleasepool {
-      [[view openGLContext] makeCurrentContext];
-      int blocking = self.blocking;
-      [[view openGLContext] setValues:&blocking forParameter:NSOpenGLCPSwapInterval];
-    }
     return true;
   }
 
@@ -62,7 +58,6 @@ struct VideoCGL : VideoDriver, OpenGL {
   }
 
   auto setShader(string shader) -> bool override {
-    OpenGL::setShader(shader);
     return true;
   }
 
@@ -72,15 +67,13 @@ struct VideoCGL : VideoDriver, OpenGL {
 
   auto clear() -> void override {
     @autoreleasepool {
-      [view lockFocus];
-      OpenGL::clear();
-      [[view openGLContext] flushBuffer];
-      [view unlockFocus];
+      if(view) [view setNeedsDisplay:YES];
     }
   }
 
   auto size(uint& width, uint& height) -> void override {
     @autoreleasepool {
+      syncViewFrame();
       auto area = [view convertRectToBacking:[view bounds]];
       width = area.size.width;
       height = area.size.height;
@@ -88,32 +81,76 @@ struct VideoCGL : VideoDriver, OpenGL {
   }
 
   auto acquire(uint32_t*& data, uint& pitch, uint width, uint height) -> bool override {
-    OpenGL::size(width, height);
-    return OpenGL::lock(data, pitch);
+    if(this->width != width || this->height != height) {
+      this->width = width, this->height = height;
+      if(buffer) delete[] buffer;
+      buffer = new uint32_t[width * height]();
+    }
+    pitch = width * sizeof(uint32_t);
+    return data = buffer;
   }
 
   auto release() -> void override {
   }
 
   auto output(uint width, uint height) -> void override {
-    uint windowWidth, windowHeight;
-    size(windowWidth, windowHeight);
-
     @autoreleasepool {
-      if([view lockFocusIfCanDraw]) {
-        OpenGL::absoluteWidth = width;
-        OpenGL::absoluteHeight = height;
-        OpenGL::outputX = 0;
-        OpenGL::outputY = 0;
-        OpenGL::outputWidth = windowWidth;
-        OpenGL::outputHeight = windowHeight;
-        OpenGL::output();
+      if(!view || !buffer) return;
+      syncViewFrame();
+      auto bounds = [view bounds];
+      auto scale = [[view window] backingScaleFactor];
+      if(!scale) scale = [[NSScreen mainScreen] backingScaleFactor];
+      drawWidth = width ? (CGFloat)width / scale : bounds.size.width;
+      drawHeight = height ? (CGFloat)height / scale : bounds.size.height;
+      [view setNeedsDisplay:YES];
+      [view display];
+    }
+  }
 
-        [[view openGLContext] flushBuffer];
-        if(self.flush) glFinish();
-        [view unlockFocus];
+  auto draw() -> void {
+    auto context = [[NSGraphicsContext currentContext] CGContext];
+    auto bounds = [view bounds];
+    CGContextSetRGBFillColor(context, 0.0, 0.0, 0.0, 1.0);
+    CGContextFillRect(context, NSRectToCGRect(bounds));
+    if(!buffer || !width || !height) return;
+
+    auto outputWidth = drawWidth ? drawWidth : bounds.size.width;
+    auto outputHeight = drawHeight ? drawHeight : bounds.size.height;
+    auto outputX = (bounds.size.width - outputWidth) / 2.0;
+    auto outputY = (bounds.size.height - outputHeight) / 2.0;
+
+    auto rgb = new uint8_t[width * height * 3];
+    for(uint y = 0; y < height; y++) {
+      for(uint x = 0; x < width; x++) {
+        auto source = (height - 1 - y) * width + x;
+        auto target = (y * width + x) * 3;
+        auto color = buffer[source];
+        rgb[target + 0] = color >> 16 & 255;
+        rgb[target + 1] = color >>  8 & 255;
+        rgb[target + 2] = color >>  0 & 255;
       }
     }
+
+    auto colorSpace = CGColorSpaceCreateDeviceRGB();
+    auto provider = CGDataProviderCreateWithData(nullptr, rgb, width * height * 3, nullptr);
+    auto image = CGImageCreate(width, height, 8, 24, width * 3, colorSpace, kCGImageAlphaNone, provider, nullptr, false, kCGRenderingIntentDefault);
+    if(image) {
+      CGContextSetInterpolationQuality(context, kCGInterpolationNone);
+      CGContextSetShouldAntialias(context, false);
+      CGContextDrawImage(context, CGRectMake(outputX, outputY, outputWidth, outputHeight), image);
+      CGImageRelease(image);
+    }
+    CGDataProviderRelease(provider);
+    CGColorSpaceRelease(colorSpace);
+    delete[] rgb;
+  }
+
+  auto syncViewFrame() -> void {
+    if(!target || !view) return;
+    auto contentView = [[target window] contentView];
+    if(!contentView) return;
+    auto frame = [target convertRect:[target bounds] toView:contentView];
+    [view setFrame:frame];
   }
 
 private:
@@ -129,36 +166,14 @@ private:
       //[NSApp setPresentationOptions:NSApplicationPresentationFullScreen];
       }
 
-      NSOpenGLPixelFormatAttribute attributeList[] = {
-        NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersion3_2Core,
-        NSOpenGLPFAColorSize, 24,
-        NSOpenGLPFAAlphaSize, 8,
-        NSOpenGLPFADoubleBuffer,
-        0
-      };
-
       auto context = self.fullScreen ? [window contentView] : (NSView*)self.context;
-      auto size = [context frame].size;
-      auto format = [[[NSOpenGLPixelFormat alloc] initWithAttributes:attributeList] autorelease];
-      auto openGLContext = [[[NSOpenGLContext alloc] initWithFormat:format shareContext:nil] autorelease];
-
-      view = [[RubyVideoCGL alloc] initWith:this pixelFormat:format];
-      [view setOpenGLContext:openGLContext];
-      [view setFrame:NSMakeRect(0, 0, size.width, size.height)];
+      target = context;
+      auto contentView = [[context window] contentView];
+      view = [[RubyVideoCGL alloc] initWith:this];
+      [view setFrame:[context convertRect:[context bounds] toView:contentView]];
       [view setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-      [view setWantsBestResolutionOpenGLSurface:YES];
-      [context addSubview:view];
-      [openGLContext setView:view];
-      [openGLContext makeCurrentContext];
+      [contentView addSubview:view positioned:NSWindowAbove relativeTo:nil];
       [[view window] makeFirstResponder:view];
-      [view lockFocus];
-
-      OpenGL::initialize(self.shader);
-
-      int blocking = self.blocking;
-      [[view openGLContext] setValues:&blocking forParameter:NSOpenGLCPSwapInterval];
-
-      [view unlockFocus];
     }
 
     clear();
@@ -167,7 +182,8 @@ private:
 
   auto terminate() -> void {
     _ready = false;
-    OpenGL::terminate();
+    if(buffer) { delete[] buffer; buffer = nullptr; }
+    width = 0, height = 0;
 
     @autoreleasepool {
       if(view) {
@@ -185,25 +201,37 @@ private:
         window = nil;
       }
     }
+    target = nullptr;
   }
 
   RubyVideoCGL* view = nullptr;
+  NSView* target = nullptr;
   RubyWindowCGL* window = nullptr;
+  CGFloat drawWidth = 0;
+  CGFloat drawHeight = 0;
 
   bool _ready = false;
 };
 
-@implementation RubyVideoCGL : NSOpenGLView
+@implementation RubyVideoCGL : NSView
 
--(id) initWith:(VideoCGL*)videoPointer pixelFormat:(NSOpenGLPixelFormat*)pixelFormat {
-  if(self = [super initWithFrame:NSMakeRect(0, 0, 0, 0) pixelFormat:pixelFormat]) {
+-(id) initWith:(VideoCGL*)videoPointer {
+  if(self = [super initWithFrame:NSMakeRect(0, 0, 0, 0)]) {
     video = videoPointer;
   }
   return self;
 }
 
+-(BOOL) isFlipped {
+  return YES;
+}
+
+-(void) drawRect:(NSRect)rect {
+  video->draw();
+}
+
 -(void) reshape {
-  video->output(0, 0);
+  [self setNeedsDisplay:YES];
 }
 
 -(BOOL) acceptsFirstResponder {
