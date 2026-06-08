@@ -3,12 +3,16 @@
   for SJLJ on other systems, one would want to rewrite springboard() and co_create() and hack the jmb_buf stack pointer.
 */
 
+/* for sigsetjmp(), sigjmp_buf, and stack_t */
+#define _POSIX_C_SOURCE 200809L
+/* for SA_ONSTACK */
+#define _XOPEN_SOURCE 600
+
 #define LIBCO_C
 #include "libco.h"
 #include "settings.h"
+#include "valgrind.h"
 
-#define _BSD_SOURCE
-#define _XOPEN_SOURCE 500
 #include <stdlib.h>
 #include <signal.h>
 #include <setjmp.h>
@@ -33,15 +37,16 @@ static void springboard(int ignored) {
   }
 }
 
-cothread_t co_active() {
+cothread_t co_active(void) {
   if(!co_running) co_running = &co_primary;
   return (cothread_t)co_running;
 }
 
 cothread_t co_derive(void* memory, unsigned int size, void (*coentry)(void)) {
+  cothread_struct* thread;
   if(!co_running) co_running = &co_primary;
 
-  cothread_struct* thread = (cothread_struct*)memory;
+  thread = (cothread_struct*)memory;
   memory = (unsigned char*)memory + sizeof(cothread_struct);
   size -= sizeof(cothread_struct);
   if(thread) {
@@ -74,6 +79,8 @@ cothread_t co_derive(void* memory, unsigned int size, void (*coentry)(void)) {
     if(thread->coentry != coentry) {
       co_delete(thread);
       thread = 0;
+    } else {
+      VALGRIND_STACK_REGISTER(stack.ss_sp, stack.ss_sp + size);
     }
   }
 
@@ -81,9 +88,10 @@ cothread_t co_derive(void* memory, unsigned int size, void (*coentry)(void)) {
 }
 
 cothread_t co_create(unsigned int size, void (*coentry)(void)) {
+  cothread_struct* thread;
   if(!co_running) co_running = &co_primary;
 
-  cothread_struct* thread = (cothread_struct*)malloc(sizeof(cothread_struct));
+  thread = (cothread_struct*)malloc(sizeof(cothread_struct));
   if(thread) {
     struct sigaction handler;
     struct sigaction old_handler;
@@ -114,6 +122,8 @@ cothread_t co_create(unsigned int size, void (*coentry)(void)) {
     if(thread->coentry != coentry) {
       co_delete(thread);
       thread = 0;
+    } else {
+      VALGRIND_STACK_REGISTER(stack.ss_sp, stack.ss_sp + size);
     }
   }
 
@@ -136,7 +146,7 @@ void co_switch(cothread_t cothread) {
   }
 }
 
-int co_serializable() {
+int co_serializable(void) {
   return 0;
 }
 

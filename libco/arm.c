@@ -1,6 +1,7 @@
 #define LIBCO_C
 #include "libco.h"
 #include "settings.h"
+#include "valgrind.h"
 
 #ifdef LIBCO_MPROTECT
   #include <unistd.h>
@@ -26,7 +27,7 @@ static const unsigned long co_swap_function[1024] = {
   0xe12fff1e,  /* bx lr                     */
 };
 
-static void co_init() {
+static void co_init(void) {
   #ifdef LIBCO_MPROTECT
   unsigned long addr = (unsigned long)co_swap_function;
   unsigned long base = addr - (addr % sysconf(_SC_PAGESIZE));
@@ -35,7 +36,7 @@ static void co_init() {
   #endif
 }
 
-cothread_t co_active() {
+cothread_t co_active(void) {
   if(!co_active_handle) co_active_handle = &co_active_buffer;
   return co_active_handle;
 }
@@ -48,9 +49,13 @@ cothread_t co_derive(void* memory, unsigned int size, void (*entrypoint)(void)) 
   }
   if(!co_active_handle) co_active_handle = &co_active_buffer;
 
-  if(handle = (unsigned long*)memory) {
-    unsigned int offset = (size & ~15);
-    unsigned long* p = (unsigned long*)((unsigned char*)handle + offset);
+  VALGRIND_STACK_REGISTER(memory, memory + size);
+
+  if((handle = (unsigned long*)memory)) {
+    unsigned long stack_top = (unsigned long)handle + size;
+    unsigned long *p;
+    stack_top &= ~((unsigned long) 15);
+    p = (unsigned long*)(stack_top);
     handle[8] = (unsigned long)p;
     handle[9] = (unsigned long)entrypoint;
   }
@@ -73,7 +78,7 @@ void co_switch(cothread_t handle) {
   co_swap(co_active_handle = handle, co_previous_handle);
 }
 
-int co_serializable() {
+int co_serializable(void) {
   return 1;
 }
 

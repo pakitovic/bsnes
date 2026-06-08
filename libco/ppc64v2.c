@@ -3,6 +3,7 @@
 #define LIBCO_C
 #include "libco.h"
 #include "settings.h"
+#include "valgrind.h"
 
 #include <stdint.h>
 
@@ -220,7 +221,7 @@ __asm__(
   ".size swap_context, .-swap_context\n"
 );
 
-cothread_t co_active() {
+cothread_t co_active(void) {
   if(!co_active_handle) {
     co_active_handle = (struct ppc64_context*)LIBCO_MALLOC(MIN_STACK + sizeof(struct ppc64_context));
   }
@@ -230,6 +231,8 @@ cothread_t co_active() {
 cothread_t co_derive(void* memory, unsigned int size, void (*coentry)(void)) {
   uint8_t* sp;
   struct ppc64_context* context = (struct ppc64_context*)memory;
+
+  VALGRIND_STACK_REGISTER(memory, memory + size);
 
   /* save current context into new context to initialize it */
   swap_context(context, context);
@@ -269,7 +272,7 @@ void co_switch(cothread_t to) {
   swap_context((struct ppc64_context*)to, from);
 }
 
-int co_serializable() {
+int co_serializable(void) {
   return 1;
 }
 

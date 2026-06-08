@@ -66,9 +66,14 @@ static void (*co_swap)(cothread_t, cothread_t) = 0;
     0xff, 0xe0,                    /* jmp rax                */
   };
 
+  /* Valgrind is available on MINGW but not on MSVC. */
+  #if defined(__GNUC__)
+    #include "valgrind.h"
+  #endif
+
   #include <windows.h>
 
-  static void co_init() {
+  static void co_init(void) {
     #ifdef LIBCO_MPROTECT
     DWORD old_privileges;
     VirtualProtect((void*)co_swap_function, sizeof co_swap_function, PAGE_EXECUTE_READ, &old_privileges);
@@ -95,12 +100,13 @@ static void (*co_swap)(cothread_t, cothread_t) = 0;
     0xff, 0xe0,              /* jmp rax          */
   };
 
+  #include "valgrind.h"
   #ifdef LIBCO_MPROTECT
     #include <unistd.h>
     #include <sys/mman.h>
   #endif
 
-  static void co_init() {
+  static void co_init(void) {
     #ifdef LIBCO_MPROTECT
     unsigned long long addr = (unsigned long long)co_swap_function;
     unsigned long long base = addr - (addr % sysconf(_SC_PAGESIZE));
@@ -110,11 +116,11 @@ static void (*co_swap)(cothread_t, cothread_t) = 0;
   }
 #endif
 
-static void crash() {
+static void crash(void) {
   LIBCO_ASSERT(0);  /* called only if cothread_t entrypoint returns */
 }
 
-cothread_t co_active() {
+cothread_t co_active(void) {
   if(!co_active_handle) co_active_handle = &co_active_buffer;
   return co_active_handle;
 }
@@ -127,12 +133,19 @@ cothread_t co_derive(void* memory, unsigned int size, void (*entrypoint)(void)) 
   }
   if(!co_active_handle) co_active_handle = &co_active_buffer;
 
-  if(handle = (cothread_t)memory) {
-    unsigned int offset = (size & ~15) - 32;
-    long long *p = (long long*)((char*)handle + offset);  /* seek to top of stack */
-    *--p = (long long)crash;                              /* crash if entrypoint returns */
-    *--p = (long long)entrypoint;                         /* start of function */
-    *(long long*)handle = (long long)p;                   /* stack pointer */
+  #if defined(__VALGRIND_MAJOR__)
+    VALGRIND_STACK_REGISTER(memory, memory + size);
+  #endif
+
+  if((handle = (cothread_t)memory)) {
+    unsigned long long stack_top = (unsigned long long)handle + size;
+    long long *p;
+    stack_top -= 32;
+    stack_top &= ~((unsigned long long) 15);
+    p = (long long*)(stack_top);             /* seek to top of stack */
+    *--p = (long long)crash;                 /* crash if entrypoint returns */
+    *--p = (long long)entrypoint;            /* start of function */
+    *(long long*)handle = (long long)p;      /* stack pointer */
   }
 
   return handle;
@@ -153,7 +166,7 @@ void co_switch(cothread_t handle) {
   co_swap(co_active_handle = handle, co_previous_handle);
 }
 
-int co_serializable() {
+int co_serializable(void) {
   return 1;
 }
 

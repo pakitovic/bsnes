@@ -3,6 +3,7 @@
 #define LIBCO_C
 #include "libco.h"
 #include "settings.h"
+#include "valgrind.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -260,9 +261,9 @@ static const uint32_t libco_ppc_code[1024] = {
 #endif
 
 static uint32_t* co_derive_(void* memory, unsigned size, uintptr_t entry) {
-  (void)entry;
-
   uint32_t* t = (uint32_t*)memory;
+
+  (void)entry;
 
   #if LIBCO_PPCDESC
   if(t) {
@@ -286,6 +287,8 @@ cothread_t co_derive(void* memory, unsigned int size, void (*entry_)(void)) {
   if(t) {
     uintptr_t sp;
     int shift;
+
+    VALGRIND_STACK_REGISTER(t, (char*)t + size);
 
     /* save current registers into new thread, so that any special ones will have proper values when thread is begun */
     CO_SWAP_ASM(t, t);
@@ -324,9 +327,9 @@ cothread_t co_derive(void* memory, unsigned int size, void (*entry_)(void)) {
 }
 
 static uint32_t* co_create_(unsigned size, uintptr_t entry) {
-  (void)entry;
-
   uint32_t* t = (uint32_t*)LIBCO_MALLOC(size);
+
+  (void)entry;
 
   #if LIBCO_PPCDESC
   if(t) {
@@ -351,6 +354,8 @@ cothread_t co_create(unsigned int size, void (*entry_)(void)) {
   if(t) {
     uintptr_t sp;
     int shift;
+
+    VALGRIND_STACK_REGISTER(t, (char*)t + size);
 
     /* save current registers into new thread, so that any special ones will have proper values when thread is begun */
     CO_SWAP_ASM(t, t);
@@ -412,7 +417,7 @@ static void co_init_(void) {
   co_active_handle = co_create_(state_size, (uintptr_t)&co_switch);
 }
 
-cothread_t co_active() {
+cothread_t co_active(void) {
   if(!co_active_handle) co_init_();
 
   return co_active_handle;
@@ -425,6 +430,6 @@ void co_switch(cothread_t t) {
   CO_SWAP_ASM(t, old);
 }
 
-int co_serializable() {
+int co_serializable(void) {
   return 0;
 }
