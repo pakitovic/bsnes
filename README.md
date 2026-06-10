@@ -10,7 +10,7 @@ features, and ease of use.
 Unique Features
 ---------------
 
-  - True Super Game Boy emulation (using the SameBoy core by Lior Halphon)
+  - True Super Game Boy emulation (via an interchangeable Game Boy core library)
   - HD mode 7 graphics with optional supersampling (by DerKoun)
   - Low-level emulation of all SNES coprocessors (DSP-n, ST-01n, Cx4)
   - Multi-threaded PPU graphics renderer
@@ -52,6 +52,24 @@ Standard Features
   - HiDPI support
   - Multi-monitor support
   - Turbo support for controller inputs
+
+Game Boy Core
+-------------
+
+bsnes does not bundle a Game Boy emulator for the Super Game Boy: it uses an
+external core implementing the `GB_*` core C API.
+
+  - **Standalone**: the core is loaded at runtime from a dynamic library
+    (`*.dylib` / `*.so` / `*.dll`). Place one or more in a `Firmware` folder
+    (inside the app bundle, or in the user data directory) and select one
+    under Settings → Emulator → Super Game Boy.
+  - **libretro**: a libretro core must ship as a single file, so the Game Boy
+    core is linked in statically. Pass a static library when building:
+
+        make -C bsnes target=libretro gbcore.lib=/path/to/libgbcore.a
+
+    For the Android build: `ndk-build GBCORE_LIB=/path/to/libgbcore.a`
+    (cross-built for each target ABI).
 
 Links
 -----

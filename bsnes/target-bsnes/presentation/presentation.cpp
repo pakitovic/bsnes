@@ -178,18 +178,6 @@ auto Presentation::create() -> void {
   manifestViewer.setIcon(Icon::Emblem::Text).setText("Manifest Viewer ...").onActivate([&] { toolsWindow.show(3); });
 
   helpMenu.setText(tr("Help"));
-  aboutSameBoy.setIcon(Icon::Prompt::Question).setText({tr("About SameBoy"), " ..."}).onActivate([&] {
-    AboutDialog()
-    .setName("SameBoy")
-    .setLogo(Resource::SameBoy)
-    .setDescription("Super Game Boy emulator")
-    .setVersion("1.0.3")
-    .setCopyright("Lior Halphon")
-    .setLicense("Expat")
-    .setWebsite("https://sameboy.github.io")
-    .setAlignment(*this)
-    .show();
-  });
   aboutBsnes.setIcon(Icon::Prompt::Question).setText({tr("About bsnes"), " ..."}).onActivate([&] {
     AboutDialog()
     .setName(Emulator::Name)

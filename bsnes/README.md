@@ -19,9 +19,6 @@ A guide to what all these directories are for:
   - [filter](./filter/)
     contains classic CPU-based image upscaling filters,
     like HQ2x and Super Eagle
-  - [gb](./gb/)
-    contains the SameBoy emulator code
-    used for Super Game Boy emulation
   - [heuristics](./heuristics/)
     contains the logic that guesses
     which memory map a particular game expects
