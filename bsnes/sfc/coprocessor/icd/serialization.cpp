@@ -1,14 +1,18 @@
 auto ICD::serialize(serializer& s) -> void {
   Thread::serialize(s);
 
-  auto size = GB_get_save_state_size(&sameboy);
+  auto size = gbcore.api.saveStateSize(gameBoy);
   auto data = new uint8_t[size];
   if(s.mode() == serializer::Save) {
-    GB_save_state_to_buffer(&sameboy, data);
+    gbcore.api.saveState(gameBoy, data);
   }
   s.array(data, size);
   if(s.mode() == serializer::Load) {
-    GB_load_state_from_buffer(&sameboy, data, size);
+    if(gbcore.api.loadState(gameBoy, data, size) != 0) {
+      //a state from a different core build may pass bsnes' size check yet still be rejected here
+      gbcore.api.reset(gameBoy);
+      print("ICD: Game Boy state incompatible with the loaded core; the Game Boy was reset\n");
+    }
   }
   delete[] data;
 

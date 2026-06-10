@@ -100,6 +100,9 @@ struct Settings : Markup::Node {
     struct RunAhead {
       uint frames = 0;
     } runAhead;
+    struct SuperGameBoy {
+      string core;
+    } superGameBoy;
     struct Hack {
       bool hotfixes = true;
       string entropy = "Low";
@@ -300,6 +303,7 @@ public:
 
 struct EmulatorSettings : VerticalLayout {
   auto create() -> void;
+  auto refreshGameBoyCores() -> void;
 
 public:
   Label optionsLabel{this, Size{~0, 0}, 2};
@@ -328,6 +332,12 @@ public:
     Label rewindLengthLabel{&rewindLayout, Size{0, 0}};
     ComboButton rewindLengthOption{&rewindLayout, Size{0, 0}};
   CheckLabel rewindMute{this, Size{0, 0}};
+  Canvas rewindSpacer{this, Size{~0, 1}};
+  //
+  Label superGameBoyLabel{this, Size{~0, 0}, 2};
+  HorizontalLayout superGameBoyLayout{this, Size{~0, 0}};
+    Label gameBoyCoreLabel{&superGameBoyLayout, Size{0, 0}};
+    ComboButton gameBoyCoreOption{&superGameBoyLayout, Size{0, 0}};
 };
 
 struct EnhancementSettings : VerticalLayout {

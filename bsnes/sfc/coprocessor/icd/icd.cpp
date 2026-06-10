@@ -3,49 +3,50 @@
 namespace SuperFamicom {
 
 ICD icd;
+#include "gb-core.cpp"
 #include "interface.cpp"
 #include "io.cpp"
 #include "boot-roms.cpp"
 #include "serialization.cpp"
 
-namespace SameBoy {
-  static auto hreset(GB_gameboy_t*) -> void {
+namespace GB {
+  static auto hreset(GameBoyCore::Instance*) -> void {
     icd.ppuHreset();
   }
 
-  static auto vreset(GB_gameboy_t*) -> void {
+  static auto vreset(GameBoyCore::Instance*) -> void {
     icd.ppuVreset();
   }
 
-  static auto icd_pixel(GB_gameboy_t*, uint8_t pixel) -> void {
+  static auto icd_pixel(GameBoyCore::Instance*, uint8_t pixel) -> void {
     icd.ppuWrite(pixel);
   }
 
-  static auto joyp_write(GB_gameboy_t*, uint8_t value) -> void {
+  static auto joyp_write(GameBoyCore::Instance*, uint8_t value) -> void {
     bool p14 = value & 0x10;
     bool p15 = value & 0x20;
     icd.joypWrite(p14, p15);
   }
 
-  static auto read_memory(GB_gameboy_t*, uint16_t addr, uint8_t data) -> uint8_t {
+  static auto read_memory(GameBoyCore::Instance*, uint16_t addr, uint8_t data) -> uint8_t {
     if(auto replace = icd.cheats.find(addr, data)) return replace();
     return data;
   }
 
-  static auto rgb_encode(GB_gameboy_t*, uint8_t r, uint8_t g, uint8_t b) -> uint32_t {
+  static auto rgb_encode(GameBoyCore::Instance*, uint8_t r, uint8_t g, uint8_t b) -> uint32_t {
     return r << 16 | g << 8 | b << 0;
   }
 
-  static auto sample(GB_gameboy_t*, GB_sample_t* sample) -> void {
+  static auto sample(GameBoyCore::Instance*, GameBoyCore::Sample* sample) -> void {
     float left  = sample->left  / 32768.0f;
     float right = sample->right / 32768.0f;
     icd.apuWrite(left, right);
   }
 
-  static auto vblank(GB_gameboy_t*, GB_vblank_type_t) -> void {
+  static auto vblank(GameBoyCore::Instance*, int) -> void {
   }
 
-  static auto log(GB_gameboy_t *gb, const char *string, GB_log_attributes_t attributes) -> void {
+  static auto log(GameBoyCore::Instance*, const char*, int) -> void {
   }
 }
 
@@ -62,7 +63,7 @@ auto ICD::Enter() -> void {
 
 auto ICD::main() -> void {
   if(r6003 & 0x80) {
-    auto clocks = GB_run(&sameboy);
+    auto clocks = gbcore.api.run(gameBoy);
     step(clocks >> 1);
   } else {  //DMG halted
     apuWrite(0.0, 0.0);
@@ -84,26 +85,29 @@ auto ICD::clockFrequency() const -> uint {
 auto ICD::load() -> bool {
   information = {};
 
-  GB_random_set_enabled(configuration.hacks.entropy != "None");
+  if(!gbcore.open(configuration.superGameBoy.corePath)) return false;
+  gbcore.api.randomSetEnabled(configuration.hacks.entropy != "None");
+  gameBoy = gbcore.api.alloc();
+  if(!gameBoy) return false;
   if(Frequency == 0) {
-    GB_init(&sameboy, GB_MODEL_SGB_NO_SFC);
-    GB_load_boot_rom_from_buffer(&sameboy, (const unsigned char*)&SGB1BootROM[0], 256);
+    gbcore.api.init(gameBoy, GameBoyCore::ModelSGB1);
+    gbcore.api.loadBootROM(gameBoy, &SGB1BootROM[0], 256);
   } else {
-    GB_init(&sameboy, GB_MODEL_SGB2_NO_SFC);
-    GB_load_boot_rom_from_buffer(&sameboy, (const unsigned char*)&SGB2BootROM[0], 256);
+    gbcore.api.init(gameBoy, GameBoyCore::ModelSGB2);
+    gbcore.api.loadBootROM(gameBoy, &SGB2BootROM[0], 256);
   }
-  GB_set_sample_rate_by_clocks(&sameboy, 256);
-  GB_set_highpass_filter_mode(&sameboy, GB_HIGHPASS_ACCURATE);
-  GB_set_icd_hreset_callback(&sameboy, &SameBoy::hreset);
-  GB_set_icd_vreset_callback(&sameboy, &SameBoy::vreset);
-  GB_set_icd_pixel_callback(&sameboy, &SameBoy::icd_pixel);
-  GB_set_joyp_write_callback(&sameboy, &SameBoy::joyp_write);
-  GB_set_read_memory_callback(&sameboy, &SameBoy::read_memory);
-  GB_set_rgb_encode_callback(&sameboy, &SameBoy::rgb_encode);
-  GB_apu_set_sample_callback(&sameboy, &SameBoy::sample);
-  GB_set_vblank_callback(&sameboy, &SameBoy::vblank);
-  GB_set_log_callback(&sameboy, &SameBoy::log);
-  GB_set_pixels_output(&sameboy, &bitmap[0]);
+  gbcore.api.setSampleRateByClocks(gameBoy, 256);
+  gbcore.api.setHighpassFilterMode(gameBoy, GameBoyCore::HighpassAccurate);
+  gbcore.api.setHresetCallback(gameBoy, &GB::hreset);
+  gbcore.api.setVresetCallback(gameBoy, &GB::vreset);
+  gbcore.api.setPixelCallback(gameBoy, &GB::icd_pixel);
+  gbcore.api.setJoypWriteCallback(gameBoy, &GB::joyp_write);
+  gbcore.api.setReadMemoryCallback(gameBoy, &GB::read_memory);
+  gbcore.api.setRgbEncodeCallback(gameBoy, &GB::rgb_encode);
+  gbcore.api.setSampleCallback(gameBoy, &GB::sample);
+  gbcore.api.setVblankCallback(gameBoy, &GB::vblank);
+  gbcore.api.setLogCallback(gameBoy, &GB::log);
+  gbcore.api.setPixelsOutput(gameBoy, &bitmap[0]);
   if(auto loaded = platform->load(ID::GameBoy, "Game Boy", "gb")) {
     information.pathID = loaded.pathID;
   } else return unload(), false;
@@ -116,23 +120,24 @@ auto ICD::load() -> bool {
     auto data = (uint8_t*)malloc(size);
     cartridge.information.sha256 = Hash::SHA256({data, (uint64_t)size}).digest();
     fp->read(data, size);
-    GB_load_rom_from_buffer(&sameboy, data, size);
+    gbcore.api.loadROM(gameBoy, data, size);
     free(data);
   } else return unload(), false;
   if(auto fp = platform->open(pathID(), "save.ram", File::Read)) {
     auto size = fp->size();
     auto data = (uint8_t*)malloc(size);
     fp->read(data, size);
-    GB_load_battery_from_buffer(&sameboy, data, size);
+    gbcore.api.loadBattery(gameBoy, data, size);
     free(data);
   }
   return true;
 }
 
 auto ICD::save() -> void {
-  if(auto size = GB_save_battery_size(&sameboy)) {
+  if(!gameBoy) return;
+  if(auto size = gbcore.api.saveBatterySize(gameBoy)) {
     auto data = (uint8_t*)malloc(size);
-    GB_save_battery_to_buffer(&sameboy, data, size);
+    gbcore.api.saveBattery(gameBoy, data, size);
     if(auto fp = platform->open(pathID(), "save.ram", File::Write)) {
       fp->write(data, size);
     }
@@ -142,7 +147,11 @@ auto ICD::save() -> void {
 
 auto ICD::unload() -> void {
   save();
-  GB_free(&sameboy);
+  if(gameBoy) {
+    gbcore.api.free(gameBoy);
+    gbcore.api.dealloc(gameBoy);
+    gameBoy = nullptr;
+  }
 }
 
 auto ICD::power(bool reset) -> void {
@@ -179,7 +188,7 @@ auto ICD::power(bool reset) -> void {
   hcounter = 0;
   vcounter = 0;
 
-  GB_reset(&sameboy);
+  gbcore.api.reset(gameBoy);
 }
 
 }

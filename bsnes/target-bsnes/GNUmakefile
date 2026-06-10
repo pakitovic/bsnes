@@ -34,6 +34,9 @@ ifeq ($(platform),macos)
 	cp -r ../shaders/* out/$(name).app/Contents/MacOS/Shaders/
 	cp $(ui)/resource/$(name).plist out/$(name).app/Contents/Info.plist
 	sips -s format icns $(ui)/resource/$(name).png --out out/$(name).app/Contents/Resources/$(name).icns
+ifneq ($(gbcore),)
+	cp $(gbcore) out/$(name).app/Contents/MacOS/Firmware/
+endif
 endif
 
 verbose: hiro.verbose ruby.verbose nall.verbose all;

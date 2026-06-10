@@ -27,6 +27,10 @@ struct Configuration {
     bool colorEmulation = true;
   } video;
 
+  struct SuperGameBoy {
+    string corePath;
+  } superGameBoy;
+
   struct Hacks {
     bool hotfixes = true;
     string entropy = "Low";

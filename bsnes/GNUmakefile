@@ -3,7 +3,7 @@ binary := application
 build := performance
 openmp := true
 local := true
-flags += -I. -I..
+flags += -I. -I.. -DNDEBUG
 
 # in order for this to work, obj/lzma.o must be omitted or bsnes will hang on startup.
 # further, only the X-Video driver works reliably. OpenGL 3.2, OpenGL 2.0, and XShm crash bsnes.
@@ -52,7 +52,6 @@ obj/filter.o: filter/filter.cpp
 obj/lzma.o: lzma/lzma.cpp
 
 include sfc/GNUmakefile
-include gb/GNUmakefile
 include processor/GNUmakefile
 
 ui := target-$(target)

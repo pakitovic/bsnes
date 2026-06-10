@@ -116,6 +116,7 @@ auto Settings::process(bool load) -> void {
   bind(boolean, "Emulator/AutoLoadStateOnLoad",          emulator.autoLoadStateOnLoad);
   bind(text,    "Emulator/Serialization/Method",         emulator.serialization.method);
   bind(natural, "Emulator/RunAhead/Frames",              emulator.runAhead.frames);
+  bind(text,    "Emulator/SuperGameBoy/Core",            emulator.superGameBoy.core);
   bind(boolean, "Emulator/Hack/Hotfixes",                emulator.hack.hotfixes);
   bind(text,    "Emulator/Hack/Entropy",                 emulator.hack.entropy);
   bind(natural, "Emulator/Hack/CPU/Overclock",           emulator.hack.cpu.overclock);

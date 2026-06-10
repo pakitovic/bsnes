@@ -20,6 +20,13 @@ auto Program::load() -> void {
   emulator->configure("Hacks/Coprocessor/DelayedSync", settings.emulator.hack.coprocessor.delayedSync);
   emulator->configure("Hacks/Coprocessor/PreferHLE", settings.emulator.hack.coprocessor.preferHLE);
   emulator->configure("Hacks/SuperFX/Overclock", settings.emulator.hack.superfx.overclock);
+  if(auto core = settings.emulator.superGameBoy.core) {
+    auto corePath = locate({"Firmware/", core});
+    if(!inode::exists(corePath)) showMessage({"Super Game Boy core not found: ", core});
+    emulator->configure("SuperGameBoy/CorePath", corePath);
+  } else {
+    emulator->configure("SuperGameBoy/CorePath", "");
+  }
   if(!emulator->load()) return;
 
   gameQueue = {};

@@ -17,6 +17,8 @@ auto Configuration::process(Markup::Node document, bool load) -> void {
   bind(boolean, "Video/BlurEmulation", video.blurEmulation);
   bind(boolean, "Video/ColorEmulation", video.colorEmulation);
 
+  bind(text,    "SuperGameBoy/CorePath", superGameBoy.corePath);
+
   bind(boolean, "Hacks/Hotfixes", hacks.hotfixes);
   bind(text,    "Hacks/Entropy", hacks.entropy);
   bind(natural, "Hacks/CPU/Overclock", hacks.cpu.overclock);

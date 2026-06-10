@@ -1,3 +1,5 @@
+#include <sfc/coprocessor/icd/gb-core.hpp>
+
 struct ICD : Emulator::Platform, Thread {
   shared_pointer<Emulator::Stream> stream;
   Emulator::Cheat cheats;
@@ -75,10 +77,8 @@ private:
   } information;
 
 public:
-  //warning: the size of this object will be too large due to C++ size rules differing from C rules.
-  //in practice, this won't pose a problem so long as the struct is never accessed from C++ code,
-  //as the offsets of all member variables will be wrong compared to what the C SameBoy code expects.
-  GB_gameboy_t sameboy;
+  //allocated and sized by the loaded core library, so its layout never has to match bsnes' view
+  GameBoyCore::Instance* gameBoy = nullptr;
   uint32_t bitmap[160 * 144];
 };
 

@@ -48,7 +48,7 @@ auto ICD::joypWrite(bool p14, bool p15) -> void {
   if(p14 == 0) input &= (joypad >> 0 & 15);  //d-pad
   if(p15 == 0) input &= (joypad >> 4 & 15);  //buttons
 
-  GB_icd_set_joyp(&sameboy, input);
+  gbcore.api.setJoyp(gameBoy, input);
 
   if(p14 == 0 && p15 == 1);
   if(p14 == 1 && p15 == 0) joypLock ^= 1;

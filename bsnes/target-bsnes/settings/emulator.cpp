@@ -133,4 +133,54 @@ auto EmulatorSettings::create() -> void {
   rewindMute.setText("Mute while rewinding").setChecked(settings.rewind.mute).onToggle([&] {
     settings.rewind.mute = rewindMute.checked();
   });
+
+  rewindSpacer.setColor({192, 192, 192});
+
+  superGameBoyLabel.setText("Super Game Boy").setFont(Font().setBold());
+
+  gameBoyCoreLabel.setText("Game Boy Core:");
+  refreshGameBoyCores();
+  gameBoyCoreOption.onChange([&] {
+    settings.emulator.superGameBoy.core = gameBoyCoreOption.selected().text();
+    if(emulator->loaded()) program.showMessage("Game Boy core change takes effect on next game load");
+  });
+}
+
+auto EmulatorSettings::refreshGameBoyCores() -> void {
+  #if defined(PLATFORM_WINDOWS)
+  const string pattern = "*.dll";
+  #elif defined(PLATFORM_MACOS)
+  const string pattern = "*.dylib";
+  #else
+  const string pattern = "*.so";
+  #endif
+
+  //the same locations locate() searches, each with a Firmware/ folder
+  vector<string> cores;
+  for(auto& path : vector<string>{
+    {Path::program(), "Firmware/"},
+    {Path::userData(), "bsnes/Firmware/"},
+    {Path::userSettings(), "bsnes/Firmware/"},
+  }) {
+    for(auto& name : directory::files(path, pattern)) {
+      if(!cores.find(name)) cores.append(name);
+    }
+  }
+
+  gameBoyCoreOption.reset();
+  if(!cores) {
+    gameBoyCoreOption.append(ComboButtonItem().setText("(none found)"));
+    gameBoyCoreOption.setEnabled(false);
+    settings.emulator.superGameBoy.core = "";
+    return;
+  }
+  gameBoyCoreOption.setEnabled(true);
+  //covers both no selection yet and a previously selected core that has since been removed
+  if(!cores.find(settings.emulator.superGameBoy.core)) settings.emulator.superGameBoy.core = cores.first();
+  uint offset = 0;
+  for(auto& name : cores) {
+    gameBoyCoreOption.append(ComboButtonItem().setText(name));
+    if(name == settings.emulator.superGameBoy.core) gameBoyCoreOption.item(offset).setSelected();
+    offset++;
+  }
 }
