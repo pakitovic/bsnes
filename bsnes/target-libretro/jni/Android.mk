@@ -3,20 +3,23 @@ LOCAL_PATH := $(call my-dir)
 SRCDIR := $(LOCAL_PATH)/../../..
 
 # The Game Boy core is linked in statically (see GB_CORE_BUILTIN in
-# sfc/coprocessor/icd/gb-core.cpp) and built from a SameBoy checkout;
-# point SAMEBOY_DIR at it (defaults to a sibling of this repository).
-SAMEBOY_DIR ?= $(SRCDIR)/../SameBoy
-ifeq ($(wildcard $(SAMEBOY_DIR)/Core/gb.c),)
-  $(error SameBoy sources not found at $(SAMEBOY_DIR); set SAMEBOY_DIR=/path/to/SameBoy)
+# sfc/coprocessor/icd/gb-core.cpp). Pass the path to any static library
+# implementing the GB_* core API, cross-built for the target ABI:
+#   ndk-build GBCORE_LIB=/path/to/$(TARGET_ARCH_ABI)/libgbcore.a
+# (with multiple APP_ABIs, embed $(TARGET_ARCH_ABI) in the path so each
+# ABI picks its own build of the library)
+ifeq ($(GBCORE_LIB),)
+  $(error GBCORE_LIB must point to a static Game Boy core library built for the target ABI, e.g. ndk-build GBCORE_LIB=/path/to/libgbcore.a)
 endif
-SAMEBOY_VERSION := $(shell sed -n 's/^VERSION := //p' $(SAMEBOY_DIR)/version.mk 2>/dev/null || echo unknown)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE    := gbcore
+LOCAL_SRC_FILES := $(GBCORE_LIB)
+include $(PREBUILT_STATIC_LIBRARY)
 
 INCFLAGS  := -I$(SRCDIR) -I$(SRCDIR)/bsnes
 COREFLAGS := -fomit-frame-pointer -ffast-math -D__LIBRETRO__ $(INCFLAGS)
 COREFLAGS += -DPLATFORM_ANDROID -DGB_CORE_BUILTIN
-# flags the SameBoy sources are built with (mirrors its 'make lib BSNES=1' preset)
-COREFLAGS += -DGB_INTERNAL -DGB_DISABLE_DEBUGGER -DGB_DISABLE_CHEATS -DGB_DISABLE_CHEAT_SEARCH
-COREFLAGS += -D_GNU_SOURCE -DGB_VERSION=\"$(SAMEBOY_VERSION)\"
 
 GIT_VERSION := " $(shell git rev-parse --short HEAD || echo unknown)"
 ifneq ($(GIT_VERSION)," unknown")
@@ -41,30 +44,16 @@ SRCFILES := $(SRCDIR)/bsnes/target-libretro/libretro.cpp \
 				$(SRCDIR)/bsnes/sfc/expansion/expansion.cpp \
 				$(SRCDIR)/bsnes/sfc/coprocessor/coprocessor.cpp \
 				$(SRCDIR)/bsnes/sfc/slot/slot.cpp \
-				$(SAMEBOY_DIR)/Core/apu.c \
-				$(SAMEBOY_DIR)/Core/camera.c \
-				$(SAMEBOY_DIR)/Core/display.c \
-				$(SAMEBOY_DIR)/Core/gb.c \
-				$(SAMEBOY_DIR)/Core/joypad.c \
-				$(SAMEBOY_DIR)/Core/mbc.c \
-				$(SAMEBOY_DIR)/Core/memory.c \
-				$(SAMEBOY_DIR)/Core/printer.c \
-				$(SAMEBOY_DIR)/Core/random.c \
-				$(SAMEBOY_DIR)/Core/rewind.c \
-				$(SAMEBOY_DIR)/Core/rumble.c \
-				$(SAMEBOY_DIR)/Core/save_state.c \
-				$(SAMEBOY_DIR)/Core/sgb.c \
-				$(SAMEBOY_DIR)/Core/sm83_cpu.c \
-				$(SAMEBOY_DIR)/Core/timing.c \
 				$(SRCDIR)/bsnes/processor/arm7tdmi/arm7tdmi.cpp \
 				$(SRCDIR)/bsnes/processor/spc700/spc700.cpp \
 				$(SRCDIR)/bsnes/processor/wdc65816/wdc65816.cpp
 
 include $(CLEAR_VARS)
-LOCAL_MODULE       := retro
-LOCAL_SRC_FILES    := $(SRCFILES)
-LOCAL_CPPFLAGS     := -std=c++17 $(COREFLAGS)
-LOCAL_CFLAGS       := $(COREFLAGS)
-LOCAL_LDFLAGS      := -Wl,-version-script=$(SRCDIR)/bsnes/target-libretro/link.T
-LOCAL_CPP_FEATURES := exceptions rtti
+LOCAL_MODULE          := retro
+LOCAL_SRC_FILES       := $(SRCFILES)
+LOCAL_CPPFLAGS        := -std=c++17 $(COREFLAGS)
+LOCAL_CFLAGS          := $(COREFLAGS)
+LOCAL_LDFLAGS         := -Wl,-version-script=$(SRCDIR)/bsnes/target-libretro/link.T
+LOCAL_CPP_FEATURES    := exceptions rtti
+LOCAL_STATIC_LIBRARIES := gbcore
 include $(BUILD_SHARED_LIBRARY)

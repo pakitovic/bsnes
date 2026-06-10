@@ -4,10 +4,13 @@ openmp := true
 flags += -Wno-narrowing -Wno-multichar -g -fPIC
 
 #a libretro core must ship as a single file, so the Game Boy core is linked in
-#statically (built from the SameBoy repository with: make lib BSNES=1)
-sameboy.lib ?= ../../SameBoy/build/lib/libsameboy.a
+#statically. pass the path to any static library implementing the GB_* core API:
+#  make -C bsnes target=libretro gbcore.lib=/path/to/libgbcore.a
+ifeq ($(gbcore.lib),)
+  $(error gbcore.lib must point to a static Game Boy core library, e.g. make target=libretro gbcore.lib=/path/to/libgbcore.a)
+endif
 flags += -DGB_CORE_BUILTIN
-options += $(sameboy.lib)
+options += $(gbcore.lib)
 
 ifeq ($(platform), ios-arm64)
 	flags += -fPIC -miphoneos-version-min=11.0 -Wno-error=implicit-function-declaration -DHAVE_POSIX_MEMALIGN
