@@ -19,7 +19,10 @@ include $(PREBUILT_STATIC_LIBRARY)
 
 INCFLAGS  := -I$(SRCDIR) -I$(SRCDIR)/bsnes
 COREFLAGS := -fomit-frame-pointer -ffast-math -D__LIBRETRO__ $(INCFLAGS)
-COREFLAGS += -DPLATFORM_ANDROID -DGB_CORE_BUILTIN
+COREFLAGS += -DGB_CORE_BUILTIN
+# nall specializes std::is_signed/is_unsigned for its Natural/Integer types,
+# which newer libc++ (NDK r29+) rejects by default
+COREFLAGS += -Wno-invalid-specialization
 
 GIT_VERSION := " $(shell git rev-parse --short HEAD || echo unknown)"
 ifneq ($(GIT_VERSION)," unknown")
