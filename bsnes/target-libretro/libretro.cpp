@@ -379,13 +379,13 @@ static void set_environment_info(retro_environment_t cb)
 	};
 
 	static const struct retro_subsystem_rom_info sgb_roms[] = {
-		{ "Game Boy ROM", "gb|gbc", true, false, true, gb_memory, 1 },
-		{ "Super Game Boy ROM", "smc|sfc|swc|fig", true, false, true, sgb_memory, 1 },
+		{ "Game Boy ROM", "gb|gbc", false, false, true, gb_memory, 1 },
+		{ "Super Game Boy ROM", "smc|sfc|swc|fig", false, false, true, sgb_memory, 1 },
 	};
 
 	static const struct retro_subsystem_rom_info bsx_roms[] = {
-		{ "BS-X ROM", "bs", true, false, true, bsx_memory, 1 },
-		{ "BS-X BIOS ROM", "smc|sfc|swc|fig", true, false, true, bsx_memory, 1 },
+		{ "BS-X ROM", "bs", false, false, true, bsx_memory, 1 },
+		{ "BS-X BIOS ROM", "smc|sfc|swc|fig", false, false, true, bsx_memory, 1 },
 	};
 
 	static const struct retro_subsystem_info subsystems[] = {
@@ -577,7 +577,9 @@ RETRO_API void retro_get_system_info(retro_system_info *info)
 {
 	info->library_name     = "bsnes";
 	info->library_version  = Emulator::Version;
-	info->need_fullpath    = true;
+	//let the frontend load the content and hand us the buffer: plain fopen()
+	//cannot resolve virtual paths like Android's saf:// content URIs
+	info->need_fullpath    = false;
 	info->valid_extensions = "smc|sfc|gb|gbc|bs";
 	info->block_extract = false;
 }
@@ -697,6 +699,19 @@ RETRO_API bool retro_load_game(const retro_game_info *game)
 
 	flush_variables();
 
+	program->superFamicom.raw = {};
+	program->gameBoy.raw = {};
+	program->bsMemory.raw = {};
+
+	//the frontend already loaded the content for us (need_fullpath=false):
+	//keep the buffer, since game->path may be a virtual location (e.g. saf://)
+	//that the core cannot reopen itself
+	vector<uint8_t> content;
+	if (game->data && game->size) {
+		content.resize(game->size);
+		memory::copy(content.data(), game->data, game->size);
+	}
+
 	if (string(game->path).endsWith(".gb") || string(game->path).endsWith(".gbc"))
 	{
 		const char *system_dir;
@@ -708,10 +723,12 @@ RETRO_API bool retro_load_game(const retro_game_info *game)
 
 		program->superFamicom.location = sgb_full_path;
 		program->gameBoy.location = string(game->path);
+		program->gameBoy.raw = std::move(content);
 	}
 	else
 	{
 		program->superFamicom.location = string(game->path);
+		program->superFamicom.raw = std::move(content);
 	}
 	program->base_name = string(game->path);
 
@@ -736,6 +753,19 @@ RETRO_API bool retro_load_game_special(unsigned game_type,
 
 	flush_variables();
 
+	program->superFamicom.raw = {};
+	program->gameBoy.raw = {};
+	program->bsMemory.raw = {};
+
+	auto content = [&](size_t index) -> vector<uint8_t> {
+		vector<uint8_t> buffer;
+		if (index < num_info && info[index].data && info[index].size) {
+			buffer.resize(info[index].size);
+			memory::copy(buffer.data(), info[index].data, info[index].size);
+		}
+		return buffer;
+	};
+
 	switch(game_type)
 	{
 		case RETRO_GAME_TYPE_SGB:
@@ -743,7 +773,9 @@ RETRO_API bool retro_load_game_special(unsigned game_type,
 			libretro_print(RETRO_LOG_INFO, "GB ROM: %s\n", info[0].path);
 			libretro_print(RETRO_LOG_INFO, "SGB ROM: %s\n", info[1].path);
 			program->gameBoy.location = info[0].path;
+			program->gameBoy.raw = content(0);
 			program->superFamicom.location = info[1].path;
+			program->superFamicom.raw = content(1);
 		}
 		break;
 		case RETRO_GAME_TYPE_BSX:
@@ -751,7 +783,9 @@ RETRO_API bool retro_load_game_special(unsigned game_type,
 			libretro_print(RETRO_LOG_INFO, "BS-X ROM: %s\n", info[0].path);
 			libretro_print(RETRO_LOG_INFO, "BS-X BIOS ROM: %s\n", info[1].path);
 			program->bsMemory.location = info[0].path;
+			program->bsMemory.raw = content(0);
 			program->superFamicom.location = info[1].path;
+			program->superFamicom.raw = content(1);
 		}
 		break;
 		default:

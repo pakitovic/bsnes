@@ -56,13 +56,16 @@ struct Program : Emulator::Platform
 public:	
 	struct Game {
 		explicit operator bool() const { return (bool)location; }
-		
+
 		string option;
 		string location;
 		string manifest;
 		Markup::Node document;
 		boolean patched;
 		boolean verified;
+		//content handed over by the frontend when it loaded the file itself
+		//(need_fullpath=false); required for virtual paths like Android's saf://
+		vector<uint8_t> raw;
 	};
 
 	struct SuperFamicom : Game {
@@ -558,7 +561,7 @@ auto Program::loadFile(string location) -> vector<uint8_t>
 auto Program::loadSuperFamicom(string location) -> bool
 {
 	vector<uint8_t> rom;
-	rom = loadFile(location);
+	rom = superFamicom.raw ? std::move(superFamicom.raw) : loadFile(location);
 
 	if(rom.size() < 0x8000) return false;
 
@@ -607,7 +610,7 @@ auto Program::loadSuperFamicom(string location) -> bool
 
 auto Program::loadGameBoy(string location) -> bool {
 	vector<uint8_t> rom;
-	rom = loadFile(location);
+	rom = gameBoy.raw ? std::move(gameBoy.raw) : loadFile(location);
 
 	if (rom.size() < 0x4000) return false;
 
@@ -624,7 +627,7 @@ auto Program::loadGameBoy(string location) -> bool {
 
 auto Program::loadBSMemory(string location) -> bool {
 	vector<uint8_t> rom;
-	rom = loadFile(location);
+	rom = bsMemory.raw ? std::move(bsMemory.raw) : loadFile(location);
 
 	if (rom.size() < 0x8000) return false;
 
