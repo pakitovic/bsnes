@@ -279,6 +279,12 @@ static void flush_variables()
 		sgb_bios = variable.value;
 	}
 
+	variable = { "bsnes_region", nullptr };
+	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &variable) && variable.value)
+	{
+		region_override = variable.value;
+	}
+
 	variable = { "bsnes_run_ahead_frames", nullptr };
 	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &variable) && variable.value)
 	{
@@ -507,6 +513,7 @@ static void set_environment_info(retro_environment_t cb)
 		{ "bsnes_coprocessor_delayed_sync", "Coprocessor Delayed Sync; ON|OFF" },
 		{ "bsnes_coprocessor_prefer_hle", "Coprocessor Prefer HLE; ON|OFF" },
 		{ "bsnes_sgb_bios", "Preferred Super GameBoy BIOS (restart); SGB1.sfc|SGB2.sfc" },
+		{ "bsnes_region", "Console region (restart); Auto|NTSC|PAL" },
 		{ "bsnes_run_ahead_frames", "Amount of frames for run-ahead; OFF|1|2|3|4" },
 		{ "bsnes_video_filter", "Video Filter; None|NTSC (RF)|NTSC (Composite)|NTSC (S-Video)|NTSC (RGB)" },
 		{ nullptr },

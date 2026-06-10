@@ -20,6 +20,7 @@ using namespace nall;
 #include "resources.hpp"
 
 static Emulator::Interface *emulator;
+static string region_override = "Auto";  //bsnes_region core option; set in libretro.cpp's flush_variables
 
 struct Program : Emulator::Platform
 {
@@ -288,7 +289,8 @@ auto Program::load(uint id, string name, string type, vector<string> options) ->
 	{
 		if (loadSuperFamicom(superFamicom.location))
 		{
-			return {id, superFamicom.region};
+			//the bsnes_region core option overrides the region inferred from the cartridge header
+			return {id, region_override != "Auto" ? region_override : superFamicom.region};
 		}
 	}
 	else if (id == 2)
