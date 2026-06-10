@@ -57,6 +57,9 @@ SRCFILES := $(SRCDIR)/bsnes/target-libretro/libretro.cpp \
 
 include $(CLEAR_VARS)
 LOCAL_MODULE          := retro
+#produce the canonical distributable name directly, so RetroArch matches the
+#core to its info file (bsnes_libretro.info) without a manual rename
+LOCAL_MODULE_FILENAME := bsnes_libretro_android
 LOCAL_SRC_FILES       := $(SRCFILES)
 LOCAL_CPPFLAGS        := -std=c++17 $(COREFLAGS)
 LOCAL_CFLAGS          := $(COREFLAGS)
