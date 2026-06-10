@@ -1,3 +1,8 @@
 bsnes
 bsnes.exe
 bsnes.app
+bsnes_libretro.so
+bsnes_libretro.dll
+bsnes_libretro.dylib
+bsnes_libretro_ios.dylib
+bsnes_libretro_tvos.dylib

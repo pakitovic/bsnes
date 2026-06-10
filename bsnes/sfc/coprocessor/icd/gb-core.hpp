@@ -78,11 +78,12 @@ struct GameBoyCore {
   //gb-core.cpp
   auto open(string location) -> bool;
   auto close() -> void;
-  auto loaded() const -> bool { return handle.open(); }
+  auto loaded() const -> bool { return builtin || handle.open(); }
 
   string location;
 
 private:
+  bool builtin = false;  //true when bound to a statically linked core (":builtin:")
   library handle;
 };
 

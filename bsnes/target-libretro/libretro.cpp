@@ -708,7 +708,7 @@ RETRO_API bool retro_load_game(const retro_game_info *game)
 	}
 	program->base_name = string(game->path);
 
-	program->load();
+	if(!program->load()) return false;
 
 	emulator->connect(SuperFamicom::ID::Port::Controller1, SuperFamicom::ID::Device::Gamepad);
 	emulator->connect(SuperFamicom::ID::Port::Controller2, SuperFamicom::ID::Device::Gamepad);
@@ -751,7 +751,7 @@ RETRO_API bool retro_load_game_special(unsigned game_type,
 			return false;
 	}
 
-	program->load();
+	if(!program->load()) return false;
 
 	emulator->connect(SuperFamicom::ID::Port::Controller1, SuperFamicom::ID::Device::Gamepad);
 	emulator->connect(SuperFamicom::ID::Port::Controller2, SuperFamicom::ID::Device::Gamepad);

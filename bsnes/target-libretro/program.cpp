@@ -33,7 +33,7 @@ struct Program : Emulator::Platform
 	auto inputPoll(uint port, uint device, uint input) -> int16 override;
 	auto inputRumble(uint port, uint device, uint input, bool enable) -> void override;
 	
-	auto load() -> void;
+	auto load() -> bool;
 	auto loadFile(string location) -> vector<uint8_t>;
 	auto loadSuperFamicom(string location) -> bool;
 	auto loadGameBoy(string location) -> bool;
@@ -218,9 +218,15 @@ auto Program::updateVideoPalette() -> void {
   }
 }
 
-auto Program::load() -> void {
+auto Program::load() -> bool {
 	emulator->unload();
-	emulator->load();
+	//the Game Boy core is linked into this libretro core (see GB_CORE_BUILTIN):
+	//a libretro core must ship as a single file
+	emulator->configure("SuperGameBoy/CorePath", ":builtin:");
+	if(!emulator->load()) {
+		libretro_print(RETRO_LOG_ERROR, "Failed to load the game\n");
+		return false;
+	}
 
 	// per-game hack overrides
 	auto title = superFamicom.title;
@@ -274,6 +280,7 @@ auto Program::load() -> void {
 	}
 
 	emulator->power();
+	return true;
 }
 
 auto Program::load(uint id, string name, string type, vector<string> options) -> Emulator::Platform::Load {

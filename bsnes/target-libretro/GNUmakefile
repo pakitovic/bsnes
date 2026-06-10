@@ -3,6 +3,12 @@ local := false
 openmp := true
 flags += -Wno-narrowing -Wno-multichar -g -fPIC
 
+#a libretro core must ship as a single file, so the Game Boy core is linked in
+#statically (built from the SameBoy repository with: make lib BSNES=1)
+sameboy.lib ?= ../../SameBoy/build/lib/libsameboy.a
+flags += -DGB_CORE_BUILTIN
+options += $(sameboy.lib)
+
 ifeq ($(platform), ios-arm64)
 	flags += -fPIC -miphoneos-version-min=11.0 -Wno-error=implicit-function-declaration -DHAVE_POSIX_MEMALIGN
 	options += -dynamiclib
