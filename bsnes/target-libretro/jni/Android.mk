@@ -29,9 +29,13 @@ ifneq ($(GIT_VERSION)," unknown")
   COREFLAGS += -DGIT_VERSION=\"$(GIT_VERSION)\"
 endif
 
+# libco's stock backends do not survive Android (see libco-android.c): use the
+# local implementation that assembles the context switch into .text instead.
+LIBCO_IMPL := $(SRCDIR)/bsnes/target-libretro/libco-android.c
+
 SRCFILES := $(SRCDIR)/bsnes/target-libretro/libretro.cpp \
 				$(SRCDIR)/bsnes/emulator/emulator.cpp \
-				$(SRCDIR)/libco/libco.c \
+				$(LIBCO_IMPL) \
 				$(SRCDIR)/bsnes/filter/filter.cpp \
 				$(SRCDIR)/bsnes/lzma/lzma.cpp \
 				$(SRCDIR)/bsnes/sfc/interface/interface.cpp \
